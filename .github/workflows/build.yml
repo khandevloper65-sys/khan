@@ -23,16 +23,30 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: '17'
+        cache: 'gradle'
+
+    - name: Setup Gradle System
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: 8.5
 
     - name: Force Build Android APK
       run: |
-        # Hum kisi folder me nahi jaayenge, direct yahi par permission denge
+        # Permissions fix
         chmod +x gradlew || true
-        ./gradlew assembleDebug --no-daemon
-
+        chmod +x **/gradlew || true
+        
+        # Try Route 1: Standard Wrapper Clean Build
+        ./gradlew clean assembleDebug --no-daemon || \
+        # Try Route 2: Direct System Gradle Build
+        gradle clean assembleDebug --no-daemon || \
+        # Try Route 3: Deep Build without wrapper
+        gradle assembleDebug --stacktrace
+        
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: MovieBox-Android-APK
-        path: "app/build/outputs/apk/debug/app-debug.apk"
-        
+        path: |
+          app/build/outputs/apk/debug/app-debug.apk
+          **/build/outputs/apk/debug/*.apk
