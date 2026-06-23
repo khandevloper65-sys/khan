@@ -16,24 +16,41 @@ jobs:
     - name: Extract ZIP File
       run: |
         sudo apt-get install -y unzip
-        unzip MovieBoxLocal.zip
         
-        # Agar unzip karne par pehle files hain aur sath me ek bada folder hai, 
-        # toh hum check kar rahe hain ki aakhir main 'app' folder aur 'build.gradle' kahan hain.
-        # Agar wo kisi andar wale folder ke andar hain, toh ye script automatic us folder me chali jayegi.
-        TARGET_DIR="."
-        if [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
-          echo "Root par hi project mil gaya!"
-        else
-          # Agar root par nahi hai, toh dhoondo ki build.gradle kis folder ke andar chhupi hai
-          FOUND_DIR=$(find . -maxdepth 3 -name "build.gradle" -exec dirname {} \;)
-          if [ ! -z "$FOUND_DIR" ]; then
-            TARGET_DIR=$FOUND_DIR
-            echo "Project is folder me mila: $TARGET_DIR"
-          fi
+        # Kisi bhi .zip file ko dhoond kar extract karna
+        ZIP_NAME=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
+        if [ -z "$ZIP_NAME" ]; then
+          echo "ERROR: Zip file nahi mili!"
+          exit 1
         fi
-        echo "PROJECT_PATH=$TARGET_DIR" >> $GITHUB_ENV
+        
+        echo "Zip mili: $ZIP_NAME"
+        unzip "$ZIP_NAME"
 
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Change gradlew permissions
+      run: |
+        # Hum direct MovieBoxLocal folder ke andar ja rahe hain bina kisi confusion ke
+        cd MovieBoxLocal
+        chmod +x gradlew || true
+
+    - name: Build APK with Gradle
+      run: |
+        cd MovieBoxLocal
+        ./gradlew assembleDebug || gradle assembleDebug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: MovieBox-Android-APK
+        path: |
+          MovieBoxLocal/app/build/outputs/apk/debug/app-debug.apk
+          **/build/outputs/apk/debug/*.apk
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
