@@ -1,0 +1,60 @@
+name: Android Smart ZIP Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Extract ZIP File
+      run: |
+        sudo apt-get install -y unzip
+        unzip MovieBoxLocal.zip
+        
+        # Agar unzip karne par pehle files hain aur sath me ek bada folder hai, 
+        # toh hum check kar rahe hain ki aakhir main 'app' folder aur 'build.gradle' kahan hain.
+        # Agar wo kisi andar wale folder ke andar hain, toh ye script automatic us folder me chali jayegi.
+        TARGET_DIR="."
+        if [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+          echo "Root par hi project mil gaya!"
+        else
+          # Agar root par nahi hai, toh dhoondo ki build.gradle kis folder ke andar chhupi hai
+          FOUND_DIR=$(find . -maxdepth 3 -name "build.gradle" -exec dirname {} \;)
+          if [ ! -z "$FOUND_DIR" ]; then
+            TARGET_DIR=$FOUND_DIR
+            echo "Project is folder me mila: $TARGET_DIR"
+          fi
+        fi
+        echo "PROJECT_PATH=$TARGET_DIR" >> $GITHUB_ENV
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Change gradlew permissions
+      run: |
+        cd ${{ env.PROJECT_PATH }}
+        chmod +x gradlew || true
+
+    - name: Build APK with Gradle
+      run: |
+        cd ${{ env.PROJECT_PATH }}
+        ./gradlew assembleDebug || gradle assembleDebug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: MovieBox-Android-APK
+        path: |
+          ${{ env.PROJECT_PATH }}/app/build/outputs/apk/debug/app-debug.apk
+          **/build/outputs/apk/debug/*.apk
+          
